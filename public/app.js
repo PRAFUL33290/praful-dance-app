@@ -7,7 +7,7 @@ const clone = value => structuredClone(value);
 const escape = text => String(text).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
 const layoutIds = new Set(layouts.map(([id]) => id));
 const layoutCategories = [
-  ['Lignes', ['line', 'rows', 'stagger', 'windows', 'columns', 'zigzag', 'diagonal']],
+  ['Lignes', ['line', 'rows', 'three_rows', 'stagger', 'windows', 'columns', 'zigzag', 'diagonal']],
   ['Pointes', ['v', 'inv_v', 'w', 'double_v', 'pyramid']],
   ['Courbes', ['arc', 'horseshoe', 'circle']],
   ['Blocs', ['block', 'diamond', 'cluster', 'cross', 'x', 'star']],
@@ -20,7 +20,7 @@ function suggestionFor(n) {
   if (n === 5) return 'Suggestion pour 5 : le Losange met naturellement une personne devant.';
   if (n === 8) return 'Suggestion pour 8 : essayez le W ou Deux lignes.';
   if (n === 9) return 'Suggestion pour 9 : la Pyramide crée une pointe et des rangs progressifs.';
-  if (n >= 12) return 'Suggestion dès 12 : 3 rangs décalés ou Files gardent la troupe lisible.';
+  if (n >= 12) return 'Suggestion dès 12 : Trois lignes, 3 rangs décalés ou Files gardent la troupe lisible.';
   if (n <= 4) return 'Suggestion : Une ligne offre une lecture claire pour ce petit effectif.';
   return n % 2 ? 'Suggestion : un V valorise naturellement le centre d’un effectif impair.' : 'Suggestion : le Quinconce ouvre une fenêtre à chaque danseur.';
 }

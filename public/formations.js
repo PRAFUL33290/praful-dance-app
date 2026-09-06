@@ -11,6 +11,7 @@ export const layouts = [
   ['diamond', 'Losange', '1 devant, côtés, 1 au fond'],
   ['inv_v', 'V inversé', 'Pointe vers le fond, ouverture public'],
   ['columns', 'Files', '2 ou 3 colonnes selon l’effectif'],
+  ['three_rows', 'Trois lignes', 'Trois rangs réguliers, décalés pour rester visibles'],
   ['windows', '3 rangs décalés', 'Trois lignes où chacun garde sa fenêtre'],
   ['solo_frame', 'Soliste + cadre', '1 au centre avant, les autres en arc'],
   ['horseshoe', 'Fer à cheval', 'Arc plus fermé sur les côtés'],
@@ -127,6 +128,17 @@ export function positions(n, layout) {
     const centers = columnCount === 2 ? [34, 66] : [24, 50, 76];
     counts.forEach((count, column) => {
       for (let row = 0; row < count; row++) points.push({ x: centers[column] + (row % 2 ? 2.5 : -2.5), y: spread(row, count, 24, 78) });
+    });
+  }
+
+  if (layout === 'three_rows') {
+    const base = Math.floor(n / 3), remainder = n % 3;
+    const counts = [base, base + (remainder === 2 ? 1 : 0), base + (remainder >= 1 ? 1 : 0)];
+    const ys = [29, 51, 73];
+    counts.forEach((count, row) => {
+      const step = count > 1 ? 68 / (count - 1) : 10;
+      const offset = row === 0 ? -step * .42 : row === 1 ? step * .42 : 0;
+      for (let i = 0; i < count; i++) points.push({ x: spread(i, count, 16, 84) + offset, y: ys[row] });
     });
   }
 

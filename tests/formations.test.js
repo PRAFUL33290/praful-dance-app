@@ -38,5 +38,8 @@ test('Les nouvelles formations respectent leurs points de repère',()=>{
   assert.deepEqual(positions(9,'pyramid')[0],{x:50,y:80});
   assert.deepEqual(new Set(positions(8,'columns').map(p=>Math.round(p.x/10)*10)),new Set([30,40,60,70]));
   assert.equal(new Set(positions(12,'columns').map(p=>Math.round(p.x/10)*10)).size,5);
-  assert.equal(layouts.length,23);
+  const threeRows=positions(15,'three_rows');
+  assert.deepEqual([...new Set(threeRows.map(p=>p.y))],[29,51,73]);
+  assert.deepEqual(threeRows.reduce((counts,p)=>(counts[p.y]=(counts[p.y]||0)+1,counts),{}),{29:5,51:5,73:5});
+  assert.equal(layouts.length,24);
 });
