@@ -6,7 +6,7 @@ test('Toutes les dispositions conservent les 1 à 40 danseurs sans positions ide
     const points=positions(n,layout);
     assert.equal(points.length,n);
     assert.equal(new Set(points.map(p=>`${p.x.toFixed(6)},${p.y.toFixed(6)}`)).size,n,`${layout}, ${n}`);
-    for (const p of points) assert.ok(p.x>=3&&p.x<=97&&p.y>=3&&p.y<=97);
+    for (const p of points) assert.ok(p.x>=8&&p.x<=92&&p.y>=16&&p.y<=84);
   }
 });
 test('Les deux lignes sont centrées et leur effectif diffère au plus de un', () => {
@@ -31,4 +31,12 @@ test('L’import refuse les projets invalides',()=>{
   const scene={title:'Test',layout:'rows',groups:1,split:false,dancers:[{id:1,name:'Julien',group:1,subgroup:1,x:50,y:50}]};
   assert.ok(validScene(scene));
   for(const invalid of [null,{}, {...scene,layout:'unknown'},{...scene,groups:9},{...scene,dancers:[]},{...scene,dancers:[...scene.dancers,...scene.dancers]},{...scene,dancers:[{...scene.dancers[0],x:Infinity}]},{...scene,title:'x'.repeat(101)}])assert.equal(validScene(invalid),false);
+});
+test('Les nouvelles formations respectent leurs points de repère',()=>{
+  assert.deepEqual(positions(1,'solo_frame'),[{x:50,y:52}]);
+  assert.deepEqual(positions(9,'solo_frame')[0],{x:50,y:78});
+  assert.deepEqual(positions(9,'pyramid')[0],{x:50,y:80});
+  assert.deepEqual(new Set(positions(8,'columns').map(p=>Math.round(p.x/10)*10)),new Set([30,40,60,70]));
+  assert.equal(new Set(positions(12,'columns').map(p=>Math.round(p.x/10)*10)).size,5);
+  assert.equal(layouts.length,23);
 });

@@ -5,14 +5,35 @@ let state = { title: 'Mon premier tableau', layout: 'rows', groups: 1, split: fa
 let saved = [], selected = null, history = [], toastTimer, storageOk = true;
 const clone = value => structuredClone(value);
 const escape = text => String(text).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+const layoutIds = new Set(layouts.map(([id]) => id));
+const layoutCategories = [
+  ['Lignes', ['line', 'rows', 'stagger', 'windows', 'columns', 'zigzag', 'diagonal']],
+  ['Pointes', ['v', 'inv_v', 'w', 'double_v', 'pyramid']],
+  ['Courbes', ['arc', 'horseshoe', 'circle']],
+  ['Blocs', ['block', 'diamond', 'cluster', 'cross', 'x', 'star']],
+  ['Focus', ['solo_frame', 'wings']]
+];
+const troupeLayouts = new Set(['solo_frame', 'x', 'star']);
+const layoutInfo = id => layouts.find(([layoutId]) => layoutId === id) || layouts.find(([layoutId]) => layoutId === 'rows');
+const normalizeScene = scene => scene && typeof scene === 'object' ? { ...scene, layout: layoutIds.has(scene.layout) ? scene.layout : 'rows' } : scene;
+function suggestionFor(n) {
+  if (n === 5) return 'Suggestion pour 5 : le Losange met naturellement une personne devant.';
+  if (n === 8) return 'Suggestion pour 8 : essayez le W ou Deux lignes.';
+  if (n === 9) return 'Suggestion pour 9 : la Pyramide crée une pointe et des rangs progressifs.';
+  if (n >= 12) return 'Suggestion dès 12 : 3 rangs décalés ou Files gardent la troupe lisible.';
+  if (n <= 4) return 'Suggestion : Une ligne offre une lecture claire pour ce petit effectif.';
+  return n % 2 ? 'Suggestion : un V valorise naturellement le centre d’un effectif impair.' : 'Suggestion : le Quinconce ouvre une fenêtre à chaque danseur.';
+}
 function createDancers(n, old = []) {
   return Array.from({ length: n }, (_, i) => ({ id: i + 1, name: old[i]?.name || `Danseur ${i + 1}`, group: 1, subgroup: 1, x: 50, y: 50 }));
 }
 state.dancers = arrange(createDancers(9), state.layout);
 try {
   const data = JSON.parse(localStorage.getItem(key));
-  if (data && validScene(data.current) && Array.isArray(data.saved) && data.saved.length <= 60 && data.saved.every(validScene)) {
-    state = data.current; saved = data.saved;
+  const current = normalizeScene(data?.current);
+  const stored = Array.isArray(data?.saved) ? data.saved.map(normalizeScene) : null;
+  if (data && validScene(current) && Array.isArray(stored) && stored.length <= 60 && stored.every(validScene)) {
+    state = current; saved = stored;
   }
 } catch { storageOk = false; }
 function toast(message) { $('#toast').textContent = message; $('#toast').classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => $('#toast').classList.remove('show'), 3200); }
@@ -49,9 +70,11 @@ function renderInspector() {
 }
 function renderSaved() {
   $('#saved-count').textContent = saved.length;
-  $('#saved').innerHTML = saved.length ? saved.map((s, index) => `<article class="saved-card"><button class="saved-load" data-load="${index}" aria-label="Charger ${escape(s.title)}"><div class="saved-preview">${s.dancers.map(d => `<i style="left:${d.x}%;top:${d.y}%;background:${color(d)}"></i>`).join('')}</div><strong>${String(index+1).padStart(2,'0')} · ${escape(s.title)}</strong><small>${s.dancers.length} danseurs · ${layouts.find(([id])=>id===s.layout)[1]}</small></button><button class="delete-saved" data-delete="${index}" aria-label="Supprimer ${escape(s.title)}">×</button></article>`).join('') : '<div class="empty-state"><strong>Votre prochain spectacle commence ici.</strong><br>Enregistrez votre première formation pour construire votre chorégraphie.</div>';
+  $('#saved').innerHTML = saved.length ? saved.map((s, index) => `<article class="saved-card"><button class="saved-load" data-load="${index}" aria-label="Charger ${escape(s.title)}"><div class="saved-preview">${s.dancers.map(d => `<i style="left:${d.x}%;top:${d.y}%;background:${color(d)}"></i>`).join('')}</div><strong>${String(index+1).padStart(2,'0')} · ${escape(s.title)}</strong><small>${s.dancers.length} danseurs · ${layoutInfo(s.layout)[1]}</small></button><button class="delete-saved" data-delete="${index}" aria-label="Supprimer ${escape(s.title)}">×</button></article>`).join('') : '<div class="empty-state"><strong>Votre prochain spectacle commence ici.</strong><br>Enregistrez votre première formation pour construire votre chorégraphie.</div>';
 }
 function render() {
+  if (!layoutIds.has(state.layout)) state.layout = 'rows';
+  const currentLayout = layoutInfo(state.layout);
   $('#count').value = state.dancers.length;
   $('#groups').value = state.groups;
   [...$('#groups').options].forEach(o => o.disabled = Number(o.value) > state.dancers.length);
@@ -62,10 +85,13 @@ function render() {
   $('#count-hint').textContent = state.dancers.length % 2 ? 'Un effectif impair ? On trouve l’équilibre.' : 'Une troupe prête à entrer en scène.';
   $('#stage-meta').textContent = `${state.dancers.length} danseur${state.dancers.length>1?'s':''} · Vue du dessus`;
   $('#roster-count').textContent = state.dancers.length;
-  $('#tip-title').textContent = state.groups > 1 ? `${state.groups} groupes, une même énergie.` : `L’équilibre${state.dancers.length % 2 ? ', même' : ''} à ${state.dancers.length}.`;
-  $('#tip-text').textContent = state.groups > 1 ? 'Chaque couleur identifie un groupe. Ajustez librement les positions.' : `${layouts.find(([id])=>id===state.layout)[2]}. Personnalisez à votre rythme.`;
+  $('#tip-title').textContent = currentLayout[1];
+  const groupTip = state.groups > 1
+    ? troupeLayouts.has(state.layout) ? ' Cette disposition s’exprime mieux avec « Toute la troupe » ; en groupes, chaque couleur devient une mini-scène.' : ' Chaque couleur reprend cette disposition dans sa mini-scène.'
+    : ' Personnalisez ensuite les positions à votre rythme.';
+  $('#tip-text').textContent = `${currentLayout[2]}.${groupTip}`;
   $('#legend').innerHTML = state.groups > 1 ? Array.from({length:state.groups},(_,i)=>`<span><i style="background:${colors[i]}"></i>G${i+1} · ${state.dancers.filter(d=>d.group===i+1).length}</span>`).join('') : '';
-  $('#layouts').innerHTML = layouts.map(([id,title,desc])=>`<button class="layout-option" data-layout="${id}" aria-pressed="${state.layout===id}"><span class="mini" aria-hidden="true">${positions(7,id).map(p=>`<i style="left:${p.x}%;top:${p.y}%"></i>`).join('')}</span><span><strong>${title}</strong><small>${desc}</small></span></button>`).join('');
+  $('#layouts').innerHTML = `<p class="layout-suggestion">✦ ${suggestionFor(state.dancers.length)}</p>${layoutCategories.map(([category, ids]) => `<section class="layout-group"><h3>${category}</h3><div>${ids.map(id => { const [, title, desc] = layoutInfo(id); return `<button class="layout-option" data-layout="${id}" aria-pressed="${state.layout===id}"><span class="mini" aria-hidden="true">${positions(7,id).map(p=>`<i style="left:${p.x}%;top:${p.y}%"></i>`).join('')}</span><span><strong>${title}</strong><small>${desc}</small></span></button>`; }).join('')}</div></section>`).join('')}`;
   renderStage(); renderRoster(); renderInspector(); renderSaved();
 }
 function setCount(value) {
@@ -134,9 +160,10 @@ $('#file').onchange = async e => {
   try {
     if (file.size>2000000) throw new Error();
     const data=JSON.parse(await file.text());
-    if (data.version!==1 || !validScene(data.current) || !Array.isArray(data.saved) || data.saved.length>60 || !data.saved.every(validScene)) throw new Error();
+    const current=normalizeScene(data.current), imported=Array.isArray(data.saved)?data.saved.map(normalizeScene):null;
+    if (data.version!==1 || !validScene(current) || !Array.isArray(imported) || imported.length>60 || !imported.every(validScene)) throw new Error();
     if (!confirm('Remplacer le projet sur cet appareil par le fichier importé ? Pensez à sauvegarder votre projet actuel.')) return;
-    state=clone(data.current); saved=clone(data.saved); history=[]; selected=null; render(); persist(); toast('Projet importé');
+    state=clone(current); saved=clone(imported); history=[]; selected=null; render(); persist(); toast('Projet importé');
   } catch { toast('Fichier invalide : choisissez un projet JSON exporté par PRAFUL DANCE APP.'); }
   finally { e.target.value=''; }
 };
@@ -144,7 +171,7 @@ $('#export').onclick = async () => {
   const canvas=document.createElement('canvas'); canvas.width=1800; canvas.height=1250; const c=canvas.getContext('2d');
   c.fillStyle='#f5f3ed'; c.fillRect(0,0,1800,1250); c.fillStyle='#292b26'; c.font='bold 28px sans-serif'; c.fillText('PRAFUL DANCE APP',80,75);
   c.font='38px sans-serif'; c.fillText(state.title,80,140,1430);
-  c.fillStyle='#808278'; c.font='18px sans-serif'; c.fillText(`${state.dancers.length} danseurs · ${layouts.find(([id])=>id===state.layout)[1]} · ${state.groups===1?'Toute la troupe':state.groups+' groupes'}`,80,185);
+  c.fillStyle='#808278'; c.font='18px sans-serif'; c.fillText(`${state.dancers.length} danseurs · ${layoutInfo(state.layout)[1]} · ${state.groups===1?'Toute la troupe':state.groups+' groupes'}`,80,185);
   const logo=document.querySelector('.header-right img'); if (logo.complete && logo.naturalWidth) c.drawImage(logo,1490,45,230,65);
   const sx=100,sy=250,sw=1600,sh=790;
   c.fillStyle='#fffefa'; c.fillRect(sx,sy,sw,sh); c.strokeStyle='#dddacf'; c.strokeRect(sx,sy,sw,sh);
