@@ -1,12 +1,12 @@
 import { layouts, colors, clamp, positions, arrange, validScene } from './formations.js';
 const $ = selector => document.querySelector(selector);
 const key = 'praful-dance-v1';
-let state = { title: 'Mon premier tableau', layout: 'rows', groups: 1, split: false, dancers: [] };
+let state = { title: 'Mon premier tableau', layout: 'rows', groups: 1, split: false, flipH: false, flipV: false, dancers: [] };
 let saved = [], selected = null, history = [], toastTimer, storageOk = true;
 let viewFlip = false;
 try { viewFlip = localStorage.getItem(key + '-flip') === '1'; } catch {}
 const clone = value => structuredClone(value);
-const escape = text => String(text).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+const escape = text => String(text).replace(/[&<>"']/g, c => ({ '&':'&', '<':'<', '>':'>', '"':'"', "'":'&#39;' }[c]));
 const layoutIds = new Set(layouts.map(([id]) => id));
 const layoutCategories = [
   ['Lignes', ['line', 'rows', 'three_rows', 'stagger', 'windows', 'columns', 'zigzag', 'diagonal']],
@@ -17,7 +17,7 @@ const layoutCategories = [
 ];
 const troupeLayouts = new Set(['solo_frame', 'x', 'star']);
 const layoutInfo = id => layouts.find(([layoutId]) => layoutId === id) || layouts.find(([layoutId]) => layoutId === 'rows');
-const normalizeScene = scene => scene && typeof scene === 'object' ? { ...scene, layout: layoutIds.has(scene.layout) ? scene.layout : 'rows' } : scene;
+const normalizeScene = scene => scene && typeof scene === 'object' ? { ...scene, layout: layoutIds.has(scene.layout) ? scene.layout : 'rows', flipH: !!scene.flipH, flipV: !!scene.flipV } : scene;
 function suggestionFor(n) {
   if (n === 5) return 'Suggestion pour 5 : le Losange met naturellement une personne devant.';
   if (n === 8) return 'Suggestion pour 8 : essayez le W ou Deux lignes.';
@@ -49,7 +49,7 @@ function distribute() {
   const counts = {};
   state.dancers.forEach((d, i) => { d.group = i % state.groups + 1; counts[d.group] = (counts[d.group] || 0) + 1; d.subgroup = (counts[d.group] - 1) % 2 + 1; });
 }
-function applyLayout() { state.dancers = arrange(state.dancers, state.layout, state.groups, state.split); }
+function applyLayout() { state.dancers = arrange(state.dancers, state.layout, state.groups, state.split, state.flipH, state.flipV); }
 const color = d => colors[(d.group - 1) % colors.length];
 const groupLabel = d => state.groups === 1 ? 'Toute la troupe' : `Groupe ${d.group}${state.split ? ' · ' + (d.subgroup === 1 ? 'A' : 'B') : ''}`;
 const displayY = y => viewFlip ? 100 - y : y;
@@ -97,7 +97,9 @@ function render() {
     : ' Personnalisez ensuite les positions à votre rythme.';
   $('#tip-text').textContent = `${currentLayout[2]}.${groupTip}`;
   $('#legend').innerHTML = state.groups > 1 ? Array.from({length:state.groups},(_,i)=>`<span><i style="background:${colors[i]}"></i>G${i+1} · ${state.dancers.filter(d=>d.group===i+1).length}</span>`).join('') : '';
-  $('#layouts').innerHTML = `<p class="layout-suggestion">✦ ${suggestionFor(state.dancers.length)}</p>${layoutCategories.map(([category, ids]) => `<section class="layout-group"><h3>${category}</h3><div>${ids.map(id => { const [, title, desc] = layoutInfo(id); return `<button class="layout-option" data-layout="${id}" aria-pressed="${state.layout===id}"><span class="mini" aria-hidden="true">${positions(7,id).map(p=>`<i style="left:${p.x}%;top:${p.y}%"></i>`).join('')}</span><span><strong>${title}</strong><small>${desc}</small></span></button>`; }).join('')}</div></section>`).join('')}`;
+  $('#flip-h').setAttribute('aria-pressed', !!state.flipH);
+  $('#flip-v').setAttribute('aria-pressed', !!state.flipV);
+  $('#layouts').innerHTML = `<p class="layout-suggestion">✦ ${suggestionFor(state.dancers.length)}</p>${layoutCategories.map(([category, ids]) => `<section class="layout-group"><h3>${category}</h3><div>${ids.map(id => { const [, title, desc] = layoutInfo(id); return `<button class="layout-option" data-layout="${id}" aria-pressed="${state.layout===id}"><span class="mini" aria-hidden="true">${positions(7,id,state.flipH,state.flipV).map(p=>`<i style="left:${p.x}%;top:${p.y}%"></i>`).join('')}</span><span><strong>${title}</strong><small>${desc}</small></span></button>`; }).join('')}</div></section>`).join('')}`;
   renderStage(); renderRoster(); renderInspector(); renderSaved();
 }
 function setCount(value) {
@@ -118,6 +120,8 @@ $('#roster').onclick = e => { const button = e.target.closest('[data-id]'); if (
 $('#undo').onclick = () => { if (!history.length) return; state = history.pop(); selected = null; render(); persist(); toast('Dernière modification annulée'); };
 $('#reset').onclick = () => { checkpoint(); applyLayout(); render(); persist(); toast('Disposition réappliquée'); };
 $('#mirror').onclick = () => { checkpoint(); state.dancers.forEach(d => d.x = 100-d.x); render(); persist(); };
+$('#flip-h').onclick = () => { checkpoint(); state.flipH = !state.flipH; applyLayout(); render(); persist(); toast(state.flipH ? 'Formation inversée horizontalement.' : 'Inversion horizontale de la formation annulée.'); };
+$('#flip-v').onclick = () => { checkpoint(); state.flipV = !state.flipV; applyLayout(); render(); persist(); toast(state.flipV ? 'Formation inversée verticalement.' : 'Inversion verticale de la formation annulée.'); };
 $('#flip').onclick = () => { viewFlip = !viewFlip; try { localStorage.setItem(key + '-flip', viewFlip ? '1' : '0'); } catch {} render(); toast(viewFlip ? 'Vue danseur : le public est en haut.' : 'Vue public : le public est en bas.'); };
 $('#fullscreen').onclick = async () => { try { if (document.fullscreenElement) await document.exitFullscreen(); else if ($('.stage-card').requestFullscreen) await $('.stage-card').requestFullscreen(); else toast('Le plein écran n’est pas disponible sur ce navigateur.'); } catch { toast('Le plein écran n’est pas disponible sur ce navigateur.'); } };
 let drag = null;
