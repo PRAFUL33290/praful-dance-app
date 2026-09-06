@@ -29,7 +29,7 @@ export const colors = ['#d86638', '#56816a', '#6d69b3', '#ba5577', '#327eaa', '#
 export const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
 
 export function positions(n, layout, flipH = false, flipV = false) {
-  if (!Number.isInteger(n) || n < 1 || n > 40) throw new Error('Effectif invalide');
+  if (!Number.isInteger(n) || n < 1 || n > 41) throw new Error('Effectif invalide');
   if (!layouts.some(([id]) => id === layout)) throw new Error('Disposition invalide');
   if (n === 1) {
     const single = { x: 50, y: 52 };
@@ -256,25 +256,54 @@ export function positions(n, layout, flipH = false, flipV = false) {
   return finish(points);
 }
 
+export function mostCentralIndex(points) {
+  if (!points.length) return 0;
+  return points.reduce((best, point, index) => {
+    const score = (point.x - 50) ** 2 + (point.y - 52) ** 2 * 0.65;
+    return score < best.score ? { index, score } : best;
+  }, { index: 0, score: Infinity }).index;
+}
+
 export function arrange(dancers, layout, groupCount = 1, split = false, flipH = false, flipV = false) {
   const result = dancers.map(d => ({ ...d }));
+  const praful = result.find(d => d.praful);
+  const others = result.filter(d => !d.praful);
   const buckets = new Map();
-  result.forEach(d => {
+  others.forEach(d => {
     const key = groupCount === 1 ? 'all' : `${d.group}-${split ? d.subgroup : 1}`;
     if (!buckets.has(key)) buckets.set(key, []);
     buckets.get(key).push(d);
   });
   const groups = [...buckets.entries()].sort(([a], [b]) => a.localeCompare(b));
-  const columns = Math.min(groups.length, 3), rows = Math.ceil(groups.length / columns);
+  const columns = Math.min(Math.max(groups.length, 1), 3), rows = Math.ceil(Math.max(groups.length, 1) / columns);
   groups.forEach(([, members], index) => {
     const row = Math.floor(index / columns), inRow = Math.min(columns, groups.length - row * columns);
     const width = 100 / columns, height = 100 / rows;
     const offset = (100 - inRow * width) / 2;
-    positions(members.length, layout, flipH, flipV).forEach((p, i) => {
-      members[i].x = offset + (index % columns) * width + p.x * width / 100;
-      members[i].y = row * height + p.y * height / 100;
-    });
+    const count = praful && groupCount === 1 ? members.length + 1 : members.length;
+    const pts = positions(count, layout, flipH, flipV);
+    if (praful && groupCount === 1) {
+      const center = mostCentralIndex(pts);
+      praful.x = offset + (index % columns) * width + pts[center].x * width / 100;
+      praful.y = row * height + pts[center].y * height / 100;
+      pts.filter((_, i) => i !== center).forEach((p, i) => {
+        members[i].x = offset + (index % columns) * width + p.x * width / 100;
+        members[i].y = row * height + p.y * height / 100;
+      });
+    } else {
+      pts.forEach((p, i) => {
+        members[i].x = offset + (index % columns) * width + p.x * width / 100;
+        members[i].y = row * height + p.y * height / 100;
+      });
+    }
   });
+  if (praful && groupCount > 1) {
+    const pts = others.map(d => ({ x: d.x, y: d.y }));
+    const cx = pts.length ? pts.reduce((sum, p) => sum + p.x, 0) / pts.length : 50;
+    const cy = pts.length ? pts.reduce((sum, p) => sum + p.y, 0) / pts.length : 52;
+    praful.x = clamp(cx, 9, 91);
+    praful.y = clamp(cy, 16, 84);
+  }
   return result;
 }
 
@@ -283,9 +312,11 @@ export function validScene(s) {
     && Number.isInteger(s.groups) && s.groups >= 1 && s.groups <= 6 && typeof s.split === 'boolean'
     && (s.flipH === undefined || typeof s.flipH === 'boolean')
     && (s.flipV === undefined || typeof s.flipV === 'boolean')
-    && Array.isArray(s.dancers) && s.dancers.length >= 1 && s.dancers.length <= 40
+    && (s.praful === undefined || typeof s.praful === 'boolean')
+    && Array.isArray(s.dancers) && s.dancers.length >= 1 && s.dancers.length <= 41
     && new Set(s.dancers.map(d => d.id)).size === s.dancers.length
-    && s.dancers.every(d => Number.isInteger(d.id) && d.id > 0 && d.id <= 40 && typeof d.name === 'string' && d.name.length <= 40
+    && s.dancers.every(d => Number.isInteger(d.id) && d.id > 0 && d.id <= 41 && typeof d.name === 'string' && d.name.length <= 40
+      && (d.praful === undefined || typeof d.praful === 'boolean')
       && Number.isInteger(d.group) && d.group >= 1 && d.group <= s.groups && [1, 2].includes(d.subgroup)
       && Number.isFinite(d.x) && d.x >= 3 && d.x <= 97 && Number.isFinite(d.y) && d.y >= 3 && d.y <= 97);
 }
