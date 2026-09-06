@@ -3,6 +3,8 @@ const $ = selector => document.querySelector(selector);
 const key = 'praful-dance-v1';
 let state = { title: 'Mon premier tableau', layout: 'rows', groups: 1, split: false, dancers: [] };
 let saved = [], selected = null, history = [], toastTimer, storageOk = true;
+let viewFlip = false;
+try { viewFlip = localStorage.getItem(key + '-flip') === '1'; } catch {}
 const clone = value => structuredClone(value);
 const escape = text => String(text).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
 const layoutIds = new Set(layouts.map(([id]) => id));
@@ -50,9 +52,13 @@ function distribute() {
 function applyLayout() { state.dancers = arrange(state.dancers, state.layout, state.groups, state.split); }
 const color = d => colors[(d.group - 1) % colors.length];
 const groupLabel = d => state.groups === 1 ? 'Toute la troupe' : `Groupe ${d.group}${state.split ? ' · ' + (d.subgroup === 1 ? 'A' : 'B') : ''}`;
+const displayY = y => viewFlip ? 100 - y : y;
 function renderStage() {
   $('#stage').classList.toggle('dense', state.dancers.length > 20 || (state.layout === 'line' && state.dancers.length > 12));
-  $('#dancers').innerHTML = state.dancers.map(d => `<button class="dancer${d.id === selected ? ' selected' : ''}" data-id="${d.id}" style="left:${d.x}%;top:${d.y}%;--dancer:${color(d)}" aria-label="${escape(d.name)}, ${escape(groupLabel(d))}. Déplacer avec les flèches." aria-pressed="${d.id === selected}">${d.id}<small>${escape(d.name)}</small></button>`).join('');
+  $('#stage-surround').classList.toggle('from-dancer', viewFlip);
+  $('#flip').setAttribute('aria-pressed', viewFlip);
+  $('#stage').setAttribute('aria-label', viewFlip ? 'Scène vue du danseur, public en haut' : 'Scène vue du dessus, public en bas');
+  $('#dancers').innerHTML = state.dancers.map(d => `<button class="dancer${d.id === selected ? ' selected' : ''}" data-id="${d.id}" style="left:${d.x}%;top:${displayY(d.y)}%;--dancer:${color(d)}" aria-label="${escape(d.name)}, ${escape(groupLabel(d))}. Déplacer avec les flèches." aria-pressed="${d.id === selected}">${d.id}<small>${escape(d.name)}</small></button>`).join('');
 }
 function renderRoster() {
   $('#roster').innerHTML = state.dancers.map(d => `<button class="roster-row${d.id === selected ? ' active' : ''}" data-id="${d.id}" style="--dancer:${color(d)}" aria-pressed="${d.id === selected}"><span>${d.id}</span><span><strong>${escape(d.name)}</strong><small>${escape(groupLabel(d))}</small></span></button>`).join('');
@@ -70,7 +76,7 @@ function renderInspector() {
 }
 function renderSaved() {
   $('#saved-count').textContent = saved.length;
-  $('#saved').innerHTML = saved.length ? saved.map((s, index) => `<article class="saved-card"><button class="saved-load" data-load="${index}" aria-label="Charger ${escape(s.title)}"><div class="saved-preview">${s.dancers.map(d => `<i style="left:${d.x}%;top:${d.y}%;background:${color(d)}"></i>`).join('')}</div><strong>${String(index+1).padStart(2,'0')} · ${escape(s.title)}</strong><small>${s.dancers.length} danseurs · ${layoutInfo(s.layout)[1]}</small></button><button class="delete-saved" data-delete="${index}" aria-label="Supprimer ${escape(s.title)}">×</button></article>`).join('') : '<div class="empty-state"><strong>Votre prochain spectacle commence ici.</strong><br>Enregistrez votre première formation pour construire votre chorégraphie.</div>';
+  $('#saved').innerHTML = saved.length ? saved.map((s, index) => `<article class="saved-card"><button class="saved-load" data-load="${index}" aria-label="Charger ${escape(s.title)}"><div class="saved-preview">${s.dancers.map(d => `<i style="left:${d.x}%;top:${displayY(d.y)}%;background:${color(d)}"></i>`).join('')}</div><strong>${String(index+1).padStart(2,'0')} · ${escape(s.title)}</strong><small>${s.dancers.length} danseurs · ${layoutInfo(s.layout)[1]}</small></button><button class="delete-saved" data-delete="${index}" aria-label="Supprimer ${escape(s.title)}">×</button></article>`).join('') : '<div class="empty-state"><strong>Votre prochain spectacle commence ici.</strong><br>Enregistrez votre première formation pour construire votre chorégraphie.</div>';
 }
 function render() {
   if (!layoutIds.has(state.layout)) state.layout = 'rows';
@@ -83,7 +89,7 @@ function render() {
   $('#minus').disabled = state.dancers.length <= 1; $('#plus').disabled = state.dancers.length >= 40;
   $('#undo').disabled = !history.length;
   $('#count-hint').textContent = state.dancers.length % 2 ? 'Un effectif impair ? On trouve l’équilibre.' : 'Une troupe prête à entrer en scène.';
-  $('#stage-meta').textContent = `${state.dancers.length} danseur${state.dancers.length>1?'s':''} · Vue du dessus`;
+  $('#stage-meta').textContent = `${state.dancers.length} danseur${state.dancers.length>1?'s':''} · ${viewFlip ? 'Vue danseur (public en haut)' : 'Vue public (public en bas)'}`;
   $('#roster-count').textContent = state.dancers.length;
   $('#tip-title').textContent = currentLayout[1];
   const groupTip = state.groups > 1
@@ -112,6 +118,7 @@ $('#roster').onclick = e => { const button = e.target.closest('[data-id]'); if (
 $('#undo').onclick = () => { if (!history.length) return; state = history.pop(); selected = null; render(); persist(); toast('Dernière modification annulée'); };
 $('#reset').onclick = () => { checkpoint(); applyLayout(); render(); persist(); toast('Disposition réappliquée'); };
 $('#mirror').onclick = () => { checkpoint(); state.dancers.forEach(d => d.x = 100-d.x); render(); persist(); };
+$('#flip').onclick = () => { viewFlip = !viewFlip; try { localStorage.setItem(key + '-flip', viewFlip ? '1' : '0'); } catch {} render(); toast(viewFlip ? 'Vue danseur : le public est en haut.' : 'Vue public : le public est en bas.'); };
 $('#fullscreen').onclick = async () => { try { if (document.fullscreenElement) await document.exitFullscreen(); else if ($('.stage-card').requestFullscreen) await $('.stage-card').requestFullscreen(); else toast('Le plein écran n’est pas disponible sur ce navigateur.'); } catch { toast('Le plein écran n’est pas disponible sur ce navigateur.'); } };
 let drag = null;
 $('#dancers').addEventListener('pointerdown', e => {
@@ -129,8 +136,8 @@ $('#dancers').addEventListener('pointermove', e => {
   if (!drag.moved && Math.hypot(dx,dy)<3) return;
   if (!drag.moved) { checkpoint(); drag.moved=true; }
   const d=state.dancers.find(d=>d.id===drag.id), button=$(`.dancer[data-id="${d.id}"]`);
-  d.x=clamp(drag.x+dx/drag.rect.width*100,4,96); d.y=clamp(drag.y+dy/drag.rect.height*100,5,92);
-  button.style.left=d.x+'%'; button.style.top=d.y+'%'; button.classList.add('dragging');
+  d.x=clamp(drag.x+dx/drag.rect.width*100,4,96); d.y=clamp(drag.y+(viewFlip?-1:1)*dy/drag.rect.height*100,5,92);
+  button.style.left=d.x+'%'; button.style.top=displayY(d.y)+'%'; button.classList.add('dragging');
 });
 function finishDrag() { if (!drag) return; document.querySelector('.dragging')?.classList.remove('dragging'); drag=null; persist(); }
 $('#dancers').addEventListener('pointerup', finishDrag);
@@ -143,7 +150,8 @@ $('#dancers').addEventListener('keydown', e => {
   e.preventDefault(); checkpoint(); selected=Number(button.dataset.id);
   const d=state.dancers.find(d=>d.id===selected), step=e.shiftKey?5:1;
   d.x=clamp(d.x+(e.key==='ArrowRight'?step:e.key==='ArrowLeft'?-step:0),4,96);
-  d.y=clamp(d.y+(e.key==='ArrowDown'?step:e.key==='ArrowUp'?-step:0),5,92);
+  const yDir = viewFlip ? -1 : 1;
+  d.y=clamp(d.y+(e.key==='ArrowDown'?step*yDir:e.key==='ArrowUp'?-step*yDir:0),5,92);
   renderStage(); $(`.dancer[data-id="${selected}"]`).focus(); renderRoster(); renderInspector(); persist();
 });
 $('#save').onclick = () => { if (saved.length >= 60) return toast('60 tableaux maximum. Exportez le projet pour commencer une nouvelle série.'); saved.push(clone(state)); renderSaved(); persist(); toast('Tableau ajouté à votre chorégraphie'); };
@@ -177,8 +185,8 @@ $('#export').onclick = async () => {
   c.fillStyle='#fffefa'; c.fillRect(sx,sy,sw,sh); c.strokeStyle='#dddacf'; c.strokeRect(sx,sy,sw,sh);
   c.fillStyle='#e0e1d6'; for(let x=sx+20;x<sx+sw;x+=30)for(let y=sy+20;y<sy+sh;y+=30){c.beginPath();c.arc(x,y,1,0,Math.PI*2);c.fill();}
   c.strokeStyle='#d4d7c9';c.setLineDash([6,6]);c.beginPath();c.moveTo(900,sy);c.lineTo(900,sy+sh);c.stroke();c.setLineDash([]);
-  c.fillStyle='#808278';c.font='16px sans-serif';c.textAlign='center';c.fillText('FOND DE SCÈNE',900,230);c.fillText('PUBLIC',900,1085);
-  state.dancers.forEach(d=>{const x=sx+d.x*sw/100,y=sy+d.y*sh/100,r=state.dancers.length>20?20:26;c.fillStyle=color(d);c.beginPath();c.arc(x,y,r,0,Math.PI*2);c.fill();c.fillStyle='#fff';c.font='bold 20px sans-serif';c.fillText(d.id,x,y+7);c.fillStyle='#42483c';c.font='16px sans-serif';const label=state.split&&state.groups>1?`${d.name} · ${d.subgroup===1?'A':'B'}`:d.name;c.fillText(label,x,y+r+23,135);});
+  c.fillStyle='#808278';c.font='16px sans-serif';c.textAlign='center';c.fillText(viewFlip?'PUBLIC':'FOND DE SCÈNE',900,230);c.fillText(viewFlip?'FOND DE SCÈNE':'PUBLIC',900,1085);
+  state.dancers.forEach(d=>{const x=sx+d.x*sw/100,y=sy+displayY(d.y)*sh/100,r=state.dancers.length>20?20:26;c.fillStyle=color(d);c.beginPath();c.arc(x,y,r,0,Math.PI*2);c.fill();c.fillStyle='#fff';c.font='bold 20px sans-serif';c.fillText(d.id,x,y+7);c.fillStyle='#42483c';c.font='16px sans-serif';const label=state.split&&state.groups>1?`${d.name} · ${d.subgroup===1?'A':'B'}`:d.name;c.fillText(label,x,y+r+23,135);});
   c.textAlign='left';c.font='16px sans-serif';for(let i=0;i<state.groups;i++){const x=100+i*270;c.fillStyle=colors[i];c.fillRect(x,1130,12,12);c.fillStyle='#626959';c.fillText(state.groups===1?'Toute la troupe':`Groupe ${i+1}`,x+23,1143);}
   c.fillStyle='#8c9181';c.font='14px sans-serif';c.fillText('PARVATI INDIA · Votre studio de chorégraphie',100,1200);
   canvas.toBlob(blob=>{if(blob){download(blob,'praful-dance-formation.png');toast('Scène exportée en PNG');}else toast('Impossible de générer l’image.');},'image/png');
