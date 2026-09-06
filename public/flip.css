@@ -3,6 +3,7 @@
 .formation-flips{display:flex;align-items:center;gap:4px;margin-left:auto}
 .formation-flips button{width:28px;height:28px;border:1px solid var(--line);border-radius:6px;background:transparent;font-size:16px;padding:0;color:var(--muted)}
 .formation-flips button[aria-pressed=true]{background:var(--soft);border-color:#e2b599;color:var(--accent)}
+.dancer.praful{box-shadow:0 0 0 3px #fff,0 0 0 6px #d86638;z-index:4}
 .stage-surround{display:flex;flex-direction:column}
 .stage-surround.from-dancer{flex-direction:column-reverse}
 .stage-surround.from-dancer .stage-label{margin-bottom:0;margin-top:16px}
