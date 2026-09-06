@@ -46,6 +46,25 @@ export function positions(n, layout) {
     }
     return result;
   };
+  const symmetrizeRows = source => {
+    const result = source.map(point => ({ ...point }));
+    const rows = new Map();
+    result.forEach((point, index) => {
+      const key = point.y.toFixed(6);
+      if (!rows.has(key)) rows.set(key, []);
+      rows.get(key).push(index);
+    });
+    rows.forEach(indices => {
+      indices.sort((a, b) => result[a].x - result[b].x);
+      for (let left = 0, right = indices.length - 1; left < right; left++, right--) {
+        const distance = (Math.abs(50 - result[indices[left]].x) + Math.abs(result[indices[right]].x - 50)) / 2;
+        result[indices[left]].x = 50 - distance;
+        result[indices[right]].x = 50 + distance;
+      }
+      if (indices.length % 2) result[indices[Math.floor(indices.length / 2)]].x = 50;
+    });
+    return result;
+  };
 
   let points = [];
 
@@ -58,16 +77,8 @@ export function positions(n, layout) {
       let x = spread(j, count, count === 1 ? 50 : 14, count === 1 ? 50 : 86);
       // Le fond se place dans les fenêtres du premier rang.
       if (rear && count > 1) {
-        if (n % 2) {
-          // Sur un effectif impair, le centre reste occupé au fond.
-          x += (j - (count - 1) / 2) * .35;
-        } else {
-          const offsets = Array.from({ length: count }, (_, k) => (k % 2 ? 1 : -1));
-          const average = offsets.reduce((sum, value) => sum + value, 0) / count;
-          const step = 72 / (count - 1);
-          const shift = Math.min(layout === 'stagger' ? 5 : 3, step * .22);
-          x += (offsets[j] - average) * shift;
-        }
+        const scale = layout === 'stagger' ? .84 : .92;
+        x = 50 + (x - 50) * scale;
       }
       return { x, y: rear ? 33 : 68 };
     });
@@ -91,12 +102,11 @@ export function positions(n, layout) {
   }
 
   if (layout === 'w') {
-    const leftCount = Math.ceil(n / 2), rightCount = n - leftCount;
-    const makeV = (count, min, max) => Array.from({ length: count }, (_, i) => {
-      const x = spread(i, count, min, max), center = (min + max) / 2;
-      return { x, y: 78 - Math.abs(x - center) * 1.7 };
+    points = Array.from({ length: n }, (_, i) => {
+      const x = spread(i, n, 10, 90);
+      const nearestTip = x <= 50 ? 30 : 70;
+      return { x, y: 78 - Math.abs(x - nearestTip) * 1.7 };
     });
-    points = [...makeV(leftCount, 10, 48), ...makeV(rightCount, 52, 90)];
   }
 
   if (layout === 'pyramid') {
@@ -124,11 +134,14 @@ export function positions(n, layout) {
 
   if (layout === 'columns') {
     const columnCount = n < 10 ? 2 : 3;
-    const counts = Array.from({ length: columnCount }, (_, column) => Math.floor((n + columnCount - 1 - column) / columnCount));
-    const centers = columnCount === 2 ? [34, 66] : [24, 50, 76];
-    counts.forEach((count, column) => {
-      for (let row = 0; row < count; row++) points.push({ x: centers[column] + (row % 2 ? 2.5 : -2.5), y: spread(row, count, 24, 78) });
-    });
+    const sideCount = columnCount === 2 ? Math.floor(n / 2) : Math.floor(n / 3);
+    const centerCount = n - sideCount * 2;
+    const sideX = columnCount === 2 ? 34 : 24;
+    for (let row = 0; row < sideCount; row++) {
+      const y = spread(row, sideCount, 24, 78);
+      points.push({ x: sideX, y }, { x: 100 - sideX, y });
+    }
+    for (let row = 0; row < centerCount; row++) points.push({ x: 50, y: spread(row, centerCount, 30, 76) });
   }
 
   if (layout === 'three_rows') {
@@ -155,7 +168,9 @@ export function positions(n, layout) {
 
   if (layout === 'solo_frame') {
     points = [{ x: 50, y: 78 }];
+    if (n === 2) points.push({ x: 50, y: 34 });
     for (let i = 0; i < n - 1; i++) {
+      if (n === 2) break;
       const angle = Math.PI + Math.PI * i / Math.max(n - 2, 1);
       points.push({ x: 50 + 38 * Math.cos(angle), y: 69 + 36 * Math.sin(angle) });
     }
@@ -169,15 +184,13 @@ export function positions(n, layout) {
   }
 
   if (layout === 'x') {
-    const first = Math.ceil(n / 2), second = n - first;
-    for (let i = 0; i < first; i++) {
-      const t = (i + .25) / first;
-      points.push({ x: 14 + 72 * t, y: 20 + 60 * t });
+    const pairCount = Math.floor(n / 2);
+    for (let i = 0; i < pairCount; i++) {
+      const t = (i + .5) / pairCount;
+      const y = spread(i, pairCount, 22, 78), distance = 7 + 31 * Math.abs(2 * t - 1);
+      points.push({ x: 50 - distance, y }, { x: 50 + distance, y });
     }
-    for (let i = 0; i < second; i++) {
-      const t = (i + .72) / second;
-      points.push({ x: 86 - 72 * t, y: 20 + 60 * t });
-    }
+    if (n % 2) points.push({ x: 50, y: 50 });
   }
 
   if (layout === 'block') {
@@ -196,20 +209,24 @@ export function positions(n, layout) {
       const x = spread(i, count, min, max);
       return { x, y: tip - Math.abs(x - 50) * 1.05 };
     });
-    points = [...makeV(front, 80, 16, 84), ...makeV(back, 61, 22, 78).map(p => ({ ...p, x: p.x + 2 }))];
+    points = [...makeV(front, 80, 16, 84), ...makeV(back, 61, 22, 78)];
   }
 
   if (layout === 'star') {
     points = Array.from({ length: n }, (_, i) => {
-      const angle = Math.PI / 2 + i * 2 * Math.PI / n, radius = i % 2 ? 24 : 39;
+      const angle = Math.PI / 2 + i * 2 * Math.PI / n;
+      const radius = 29 + 10 * Math.cos(5 * (angle - Math.PI / 2));
       return { x: 50 + radius * Math.cos(angle), y: 50 + radius * .82 * Math.sin(angle) };
     });
   }
 
   if (layout === 'cross') {
-    const vertical = Math.ceil(n / 2), horizontal = n - vertical;
-    for (let i = 0; i < vertical; i++) points.push({ x: 50 + (i % 2 ? 1.7 : -1.7), y: spread(i, vertical, 20, 80) });
-    for (let i = 0; i < horizontal; i++) points.push({ x: spread(i, horizontal, 12, 88), y: 50 + (i % 2 ? 1.7 : -1.7) });
+    const horizontal = 2 * Math.floor(n / 4), vertical = n - horizontal;
+    for (let i = 0; i < vertical; i++) points.push({ x: 50, y: spread(i, vertical, 20, 80) });
+    for (let i = 0; i < horizontal / 2; i++) {
+      const distance = spread(i, horizontal / 2, 18, 38);
+      points.push({ x: 50 - distance, y: 50 }, { x: 50 + distance, y: 50 });
+    }
   }
 
   if (layout === 'cluster') {
@@ -221,13 +238,16 @@ export function positions(n, layout) {
   }
 
   if (layout === 'wings') {
-    const left = Math.ceil(n / 2), right = n - left;
+    const sideCount = Math.floor(n / 2);
     const wing = (count, side) => Array.from({ length: count }, (_, i) => {
       const t = count === 1 ? .5 : i / (count - 1);
       return { x: side === -1 ? 40 - 27 * Math.sin(t * Math.PI / 2) : 60 + 27 * Math.sin(t * Math.PI / 2), y: 24 + 54 * t };
     });
-    points = [...wing(left, -1), ...wing(right, 1)];
+    points = [...wing(sideCount, -1), ...wing(sideCount, 1)];
+    if (n % 2) points.push({ x: 50, y: 78 });
   }
+
+  if (['pyramid', 'three_rows', 'windows', 'block'].includes(layout)) points = symmetrizeRows(points);
 
   return finish(points);
 }
