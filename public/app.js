@@ -3,6 +3,7 @@ const $ = selector => document.querySelector(selector);
 const key = 'praful-dance-v1';
 let state = { title: 'Mon premier tableau', layout: 'rows', groups: 1, split: false, dancers: [] };
 let saved = [], selected = null, history = [], toastTimer, storageOk = true;
+let layoutMode = 'pinned', layoutPanelHidden = false;
 const clone = value => structuredClone(value);
 const escape = text => String(text).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
 const layoutIds = new Set(layouts.map(([id]) => id));
@@ -23,6 +24,14 @@ function suggestionFor(n) {
   if (n >= 12) return 'Suggestion dès 12 : Trois lignes, 3 rangs décalés ou Files gardent la troupe lisible.';
   if (n <= 4) return 'Suggestion : Une ligne offre une lecture claire pour ce petit effectif.';
   return n % 2 ? 'Suggestion : un V valorise naturellement le centre d’un effectif impair.' : 'Suggestion : le Quinconce ouvre une fenêtre à chaque danseur.';
+}
+try { layoutMode = localStorage.getItem('praful-dance-layout-mode') === 'floating' ? 'floating' : 'pinned'; } catch {}
+function renderLayoutMode() {
+  document.body.classList.toggle('layout-floating', layoutMode === 'floating');
+  document.body.classList.toggle('layout-panel-hidden', layoutPanelHidden);
+  $('#layout-mode').textContent = layoutMode === 'floating' ? '⌖ Épingler' : '↗ Flottant';
+  $('#layout-mode').setAttribute('aria-pressed', layoutMode === 'floating');
+  $('#layout-open').setAttribute('aria-expanded', String(!layoutPanelHidden));
 }
 function createDancers(n, old = []) {
   return Array.from({ length: n }, (_, i) => ({ id: i + 1, name: old[i]?.name || `Danseur ${i + 1}`, group: 1, subgroup: 1, x: 50, y: 50 }));
@@ -107,6 +116,13 @@ $('#minus').onclick = () => setCount(state.dancers.length - 1);
 $('#groups').onchange = e => { checkpoint(); state.groups = Number(e.target.value); if (state.groups===1) state.split=false; distribute(); applyLayout(); render(); persist(); };
 $('#split').onchange = e => { checkpoint(); state.split = e.target.checked; applyLayout(); render(); persist(); };
 $('#layouts').onclick = e => { const button = e.target.closest('[data-layout]'); if (!button) return; checkpoint(); state.layout = button.dataset.layout; applyLayout(); render(); persist(); };
+$('#layout-mode').onclick = () => {
+  layoutMode = layoutMode === 'pinned' ? 'floating' : 'pinned';
+  try { localStorage.setItem('praful-dance-layout-mode', layoutMode); } catch {}
+  renderLayoutMode();
+};
+$('#layout-close').onclick = () => { layoutPanelHidden = true; renderLayoutMode(); };
+$('#layout-open').onclick = () => { layoutPanelHidden = false; renderLayoutMode(); $('#layout-mode').focus(); };
 $('#title').onchange = e => { checkpoint(); state.title = e.target.value.trim().slice(0,100) || 'Tableau sans titre'; render(); persist(); };
 $('#roster').onclick = e => { const button = e.target.closest('[data-id]'); if (button) { selected = Number(button.dataset.id); renderStage(); renderRoster(); renderInspector(); } };
 $('#undo').onclick = () => { if (!history.length) return; state = history.pop(); selected = null; render(); persist(); toast('Dernière modification annulée'); };
@@ -183,4 +199,4 @@ $('#export').onclick = async () => {
   c.fillStyle='#8c9181';c.font='14px sans-serif';c.fillText('PARVATI INDIA · Votre studio de chorégraphie',100,1200);
   canvas.toBlob(blob=>{if(blob){download(blob,'praful-dance-formation.png');toast('Scène exportée en PNG');}else toast('Impossible de générer l’image.');},'image/png');
 };
-render(); persist();
+render(); renderLayoutMode(); persist();
