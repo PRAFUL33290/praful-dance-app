@@ -1,7 +1,7 @@
 import { layouts, colors, clamp, positions, arrange, validScene } from './formations.js';
 const $ = selector => document.querySelector(selector);
 const key = 'praful-dance-v1';
-let state = { title: 'Mon premier tableau', layout: 'rows', groups: 1, split: false, flipH: false, flipV: false, dancers: [] };
+let state = { title: 'Mon premier tableau', layout: 'rows', groups: 1, split: false, flipH: false, flipV: false, praful: false, dancers: [] };
 let saved = [], selected = null, history = [], toastTimer, storageOk = true;
 let viewFlip = false;
 try { viewFlip = localStorage.getItem(key + '-flip') === '1'; } catch {}
@@ -17,7 +17,19 @@ const layoutCategories = [
 ];
 const troupeLayouts = new Set(['solo_frame', 'x', 'star']);
 const layoutInfo = id => layouts.find(([layoutId]) => layoutId === id) || layouts.find(([layoutId]) => layoutId === 'rows');
-const normalizeScene = scene => scene && typeof scene === 'object' ? { ...scene, layout: layoutIds.has(scene.layout) ? scene.layout : 'rows', flipH: !!scene.flipH, flipV: !!scene.flipV } : scene;
+const normalizeScene = scene => {
+  if (!scene || typeof scene !== 'object') return scene;
+  const next = { ...scene, layout: layoutIds.has(scene.layout) ? scene.layout : 'rows', flipH: !!scene.flipH, flipV: !!scene.flipV, praful: !!scene.praful };
+  if (Array.isArray(next.dancers)) next.dancers = next.dancers.map(d => ({ ...d, praful: !!d.praful }));
+  return next;
+};
+const PRAFUL_ID = 41;
+const troupe = () => state.dancers.filter(d => !d.praful);
+const makePraful = () => ({ id: PRAFUL_ID, name: 'Praful', praful: true, group: 1, subgroup: 1, x: 50, y: 52 });
+function syncPraful() {
+  const others = troupe();
+  state.dancers = state.praful ? [...others, makePraful()] : others;
+}
 function suggestionFor(n) {
   if (n === 5) return 'Suggestion pour 5 : le Losange met naturellement une personne devant.';
   if (n === 8) return 'Suggestion pour 8 : essayez le W ou Deux lignes.';
@@ -27,7 +39,8 @@ function suggestionFor(n) {
   return n % 2 ? 'Suggestion : un V valorise naturellement le centre d’un effectif impair.' : 'Suggestion : le Quinconce ouvre une fenêtre à chaque danseur.';
 }
 function createDancers(n, old = []) {
-  return Array.from({ length: n }, (_, i) => ({ id: i + 1, name: old[i]?.name || `Danseur ${i + 1}`, group: 1, subgroup: 1, x: 50, y: 50 }));
+  const others = old.filter(d => !d.praful);
+  return Array.from({ length: n }, (_, i) => ({ id: i + 1, name: others[i]?.name || `Danseur ${i + 1}`, group: 1, subgroup: 1, x: 50, y: 50 }));
 }
 state.dancers = arrange(createDancers(9), state.layout);
 try {
@@ -36,6 +49,7 @@ try {
   const stored = Array.isArray(data?.saved) ? data.saved.map(normalizeScene) : null;
   if (data && validScene(current) && Array.isArray(stored) && stored.length <= 60 && stored.every(validScene)) {
     state = current; saved = stored;
+    if (state.praful && !state.dancers.some(d => d.praful)) syncPraful();
   }
 } catch { storageOk = false; }
 function toast(message) { $('#toast').textContent = message; $('#toast').classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => $('#toast').classList.remove('show'), 3200); }
@@ -47,28 +61,31 @@ function persist() {
 function checkpoint() { history.push(clone(state)); if (history.length > 50) history.shift(); $('#undo').disabled = false; }
 function distribute() {
   const counts = {};
-  state.dancers.forEach((d, i) => { d.group = i % state.groups + 1; counts[d.group] = (counts[d.group] || 0) + 1; d.subgroup = (counts[d.group] - 1) % 2 + 1; });
+  troupe().forEach((d, i) => { d.group = i % state.groups + 1; counts[d.group] = (counts[d.group] || 0) + 1; d.subgroup = (counts[d.group] - 1) % 2 + 1; });
+  const p = state.dancers.find(d => d.praful);
+  if (p) { p.group = 1; p.subgroup = 1; p.name = 'Praful'; }
 }
 function applyLayout() { state.dancers = arrange(state.dancers, state.layout, state.groups, state.split, state.flipH, state.flipV); }
-const color = d => colors[(d.group - 1) % colors.length];
-const groupLabel = d => state.groups === 1 ? 'Toute la troupe' : `Groupe ${d.group}${state.split ? ' · ' + (d.subgroup === 1 ? 'A' : 'B') : ''}`;
+const color = d => d.praful ? '#d86638' : colors[(d.group - 1) % colors.length];
+const groupLabel = d => d.praful ? 'Praful · centre' : state.groups === 1 ? 'Toute la troupe' : `Groupe ${d.group}${state.split ? ' · ' + (d.subgroup === 1 ? 'A' : 'B') : ''}`;
 const displayY = y => viewFlip ? 100 - y : y;
 function renderStage() {
   $('#stage').classList.toggle('dense', state.dancers.length > 20 || (state.layout === 'line' && state.dancers.length > 12));
   $('#stage-surround').classList.toggle('from-dancer', viewFlip);
   $('#flip').setAttribute('aria-pressed', viewFlip);
   $('#stage').setAttribute('aria-label', viewFlip ? 'Scène vue du danseur, public en haut' : 'Scène vue du dessus, public en bas');
-  $('#dancers').innerHTML = state.dancers.map(d => `<button class="dancer${d.id === selected ? ' selected' : ''}" data-id="${d.id}" style="left:${d.x}%;top:${displayY(d.y)}%;--dancer:${color(d)}" aria-label="${escape(d.name)}, ${escape(groupLabel(d))}. Déplacer avec les flèches." aria-pressed="${d.id === selected}">${d.id}<small>${escape(d.name)}</small></button>`).join('');
+  $('#dancers').innerHTML = state.dancers.map(d => `<button class="dancer${d.id === selected ? ' selected' : ''}${d.praful ? ' praful' : ''}" data-id="${d.id}" style="left:${d.x}%;top:${displayY(d.y)}%;--dancer:${color(d)}" aria-label="${escape(d.name)}, ${escape(groupLabel(d))}. Déplacer avec les flèches." aria-pressed="${d.id === selected}">${d.praful ? 'P' : d.id}<small>${escape(d.name)}</small></button>`).join('');
 }
 function renderRoster() {
-  $('#roster').innerHTML = state.dancers.map(d => `<button class="roster-row${d.id === selected ? ' active' : ''}" data-id="${d.id}" style="--dancer:${color(d)}" aria-pressed="${d.id === selected}"><span>${d.id}</span><span><strong>${escape(d.name)}</strong><small>${escape(groupLabel(d))}</small></span></button>`).join('');
+  $('#roster').innerHTML = state.dancers.map(d => `<button class="roster-row${d.id === selected ? ' active' : ''}${d.praful ? ' praful' : ''}" data-id="${d.id}" style="--dancer:${color(d)}" aria-pressed="${d.id === selected}"><span>${d.praful ? 'P' : d.id}</span><span><strong>${escape(d.name)}</strong><small>${escape(groupLabel(d))}</small></span></button>`).join('');
 }
 function renderInspector() {
   const d = state.dancers.find(d => d.id === selected);
   $('#inspector').innerHTML = d ? `<div class="inspector-head"><strong>Danseur ${d.id}</strong><button id="close-inspector" aria-label="Fermer la sélection">×</button></div><label for="dancer-name">Prénom</label><input id="dancer-name" maxlength="40" value="${escape(d.name)}">${state.groups > 1 ? `<label for="dancer-group">Groupe</label><select id="dancer-group">${Array.from({length:state.groups},(_,i)=>`<option value="${i+1}" ${d.group===i+1?'selected':''}>Groupe ${i+1}</option>`).join('')}</select>` : ''}${state.groups > 1 && state.split ? `<label for="dancer-subgroup">Sous-groupe</label><select id="dancer-subgroup"><option value="1" ${d.subgroup===1?'selected':''}>A</option><option value="2" ${d.subgroup===2?'selected':''}>B</option></select>` : ''}` : '';
   if (!d) return;
   $('#close-inspector').onclick = () => { selected = null; render(); };
-  $('#dancer-name').onchange = e => { checkpoint(); d.name = e.target.value.trim().slice(0,40) || `Danseur ${d.id}`; render(); persist(); };
+  $('#dancer-name').disabled = !!d.praful;
+  $('#dancer-name').onchange = e => { if (d.praful) return; checkpoint(); d.name = e.target.value.trim().slice(0,40) || `Danseur ${d.id}`; render(); persist(); };
   for (const [id, field] of [['dancer-group','group'], ['dancer-subgroup','subgroup']]) {
     const input = $(`#${id}`);
     if (input) input.onchange = e => { checkpoint(); d[field] = Number(e.target.value); render(); persist(); toast('Groupe modifié. ↻ réorganise les positions si besoin.'); };
@@ -81,15 +98,17 @@ function renderSaved() {
 function render() {
   if (!layoutIds.has(state.layout)) state.layout = 'rows';
   const currentLayout = layoutInfo(state.layout);
-  $('#count').value = state.dancers.length;
+  const n = troupe().length;
+  $('#count').value = n;
   $('#groups').value = state.groups;
-  [...$('#groups').options].forEach(o => o.disabled = Number(o.value) > state.dancers.length);
+  [...$('#groups').options].forEach(o => o.disabled = Number(o.value) > n);
   $('#split').checked = state.split; $('#split').disabled = state.groups === 1;
+  $('#praful').checked = !!state.praful;
   $('#title').value = state.title;
-  $('#minus').disabled = state.dancers.length <= 1; $('#plus').disabled = state.dancers.length >= 40;
+  $('#minus').disabled = n <= 1; $('#plus').disabled = n >= 40;
   $('#undo').disabled = !history.length;
-  $('#count-hint').textContent = state.dancers.length % 2 ? 'Un effectif impair ? On trouve l’équilibre.' : 'Une troupe prête à entrer en scène.';
-  $('#stage-meta').textContent = `${state.dancers.length} danseur${state.dancers.length>1?'s':''} · ${viewFlip ? 'Vue danseur (public en haut)' : 'Vue public (public en bas)'}`;
+  $('#count-hint').textContent = n % 2 ? 'Un effectif impair ? On trouve l’équilibre.' : 'Une troupe prête à entrer en scène.';
+  $('#stage-meta').textContent = `${state.dancers.length} danseur${state.dancers.length>1?'s':''}${state.praful ? ' · Praful au centre' : ''} · ${viewFlip ? 'Vue danseur (public en haut)' : 'Vue public (public en bas)'}`;
   $('#roster-count').textContent = state.dancers.length;
   $('#tip-title').textContent = currentLayout[1];
   const groupTip = state.groups > 1
@@ -104,16 +123,17 @@ function render() {
 }
 function setCount(value) {
   const n = clamp(Math.round(Number(value) || 1), 1, 40);
-  if (n === state.dancers.length) { $('#count').value = n; return; }
-  checkpoint(); state.dancers = createDancers(n, state.dancers); state.groups = Math.min(state.groups, n);
+  if (n === troupe().length) { $('#count').value = n; return; }
+  checkpoint(); state.dancers = createDancers(n, state.dancers); syncPraful(); state.groups = Math.min(state.groups, n);
   if (state.groups === 1) state.split = false;
   selected = null; distribute(); applyLayout(); render(); persist();
 }
 $('#count').onchange = e => setCount(e.target.value);
-$('#plus').onclick = () => setCount(state.dancers.length + 1);
-$('#minus').onclick = () => setCount(state.dancers.length - 1);
+$('#plus').onclick = () => setCount(troupe().length + 1);
+$('#minus').onclick = () => setCount(troupe().length - 1);
 $('#groups').onchange = e => { checkpoint(); state.groups = Number(e.target.value); if (state.groups===1) state.split=false; distribute(); applyLayout(); render(); persist(); };
 $('#split').onchange = e => { checkpoint(); state.split = e.target.checked; applyLayout(); render(); persist(); };
+$('#praful').onchange = e => { checkpoint(); state.praful = e.target.checked; syncPraful(); applyLayout(); render(); persist(); toast(state.praful ? 'Praful rejoint le centre de la formation.' : 'Praful a quitté la scène.'); };
 $('#layouts').onclick = e => { const button = e.target.closest('[data-layout]'); if (!button) return; checkpoint(); state.layout = button.dataset.layout; applyLayout(); render(); persist(); };
 $('#title').onchange = e => { checkpoint(); state.title = e.target.value.trim().slice(0,100) || 'Tableau sans titre'; render(); persist(); };
 $('#roster').onclick = e => { const button = e.target.closest('[data-id]'); if (button) { selected = Number(button.dataset.id); renderStage(); renderRoster(); renderInspector(); } };
@@ -190,7 +210,7 @@ $('#export').onclick = async () => {
   c.fillStyle='#e0e1d6'; for(let x=sx+20;x<sx+sw;x+=30)for(let y=sy+20;y<sy+sh;y+=30){c.beginPath();c.arc(x,y,1,0,Math.PI*2);c.fill();}
   c.strokeStyle='#d4d7c9';c.setLineDash([6,6]);c.beginPath();c.moveTo(900,sy);c.lineTo(900,sy+sh);c.stroke();c.setLineDash([]);
   c.fillStyle='#808278';c.font='16px sans-serif';c.textAlign='center';c.fillText(viewFlip?'PUBLIC':'FOND DE SCÈNE',900,230);c.fillText(viewFlip?'FOND DE SCÈNE':'PUBLIC',900,1085);
-  state.dancers.forEach(d=>{const x=sx+d.x*sw/100,y=sy+displayY(d.y)*sh/100,r=state.dancers.length>20?20:26;c.fillStyle=color(d);c.beginPath();c.arc(x,y,r,0,Math.PI*2);c.fill();c.fillStyle='#fff';c.font='bold 20px sans-serif';c.fillText(d.id,x,y+7);c.fillStyle='#42483c';c.font='16px sans-serif';const label=state.split&&state.groups>1?`${d.name} · ${d.subgroup===1?'A':'B'}`:d.name;c.fillText(label,x,y+r+23,135);});
+  state.dancers.forEach(d=>{const x=sx+d.x*sw/100,y=sy+displayY(d.y)*sh/100,r=state.dancers.length>20?20:26;c.fillStyle=color(d);c.beginPath();c.arc(x,y,r,0,Math.PI*2);c.fill();c.fillStyle='#fff';c.font='bold 20px sans-serif';c.fillText(d.praful?'P':d.id,x,y+7);c.fillStyle='#42483c';c.font='16px sans-serif';const label=state.split&&state.groups>1?`${d.name} · ${d.subgroup===1?'A':'B'}`:d.name;c.fillText(label,x,y+r+23,135);});
   c.textAlign='left';c.font='16px sans-serif';for(let i=0;i<state.groups;i++){const x=100+i*270;c.fillStyle=colors[i];c.fillRect(x,1130,12,12);c.fillStyle='#626959';c.fillText(state.groups===1?'Toute la troupe':`Groupe ${i+1}`,x+23,1143);}
   c.fillStyle='#8c9181';c.font='14px sans-serif';c.fillText('PARVATI INDIA · Votre studio de chorégraphie',100,1200);
   canvas.toBlob(blob=>{if(blob){download(blob,'praful-dance-formation.png');toast('Scène exportée en PNG');}else toast('Impossible de générer l’image.');},'image/png');
