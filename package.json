@@ -1,0 +1,13 @@
+{
+  "name": "praful-dance-app",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node scripts/serve.js",
+    "start": "node scripts/serve.js",
+    "build": "node scripts/build.js",
+    "test": "node --test"
+  },
+  "engines": { "node": ">=20" }
+}
