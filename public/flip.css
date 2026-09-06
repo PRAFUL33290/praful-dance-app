@@ -1,5 +1,8 @@
 /* Vue danseur : inversion verticale scène / public */
 .toolbar-actions button[aria-pressed=true]{background:var(--soft);border-color:#e2b599;color:var(--accent)}
+.formation-flips{display:flex;align-items:center;gap:4px;margin-left:auto}
+.formation-flips button{width:28px;height:28px;border:1px solid var(--line);border-radius:6px;background:transparent;font-size:16px;padding:0;color:var(--muted)}
+.formation-flips button[aria-pressed=true]{background:var(--soft);border-color:#e2b599;color:var(--accent)}
 .stage-surround{display:flex;flex-direction:column}
 .stage-surround.from-dancer{flex-direction:column-reverse}
 .stage-surround.from-dancer .stage-label{margin-bottom:0;margin-top:16px}
