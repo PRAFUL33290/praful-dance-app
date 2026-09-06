@@ -9,7 +9,7 @@ Une application en français pour préparer les placements de danseurs, aux coul
 - Deux lignes centrées, avec un danseur sur l’axe central pour un effectif impair.
 - Troupe unique ou 2 à 6 groupes équilibrés, chacun pouvant être divisé en sous-groupes A/B.
 - Affectation individuelle des prénoms, groupes et sous-groupes.
-- Déplacement libre, flèches du clavier (Maj pour un pas plus grand), miroir horizontal, inversion verticale scène/public (vue danseur) et annulation des 50 dernières modifications de scène.
+- Déplacement libre, flèches du clavier (Maj pour un pas plus grand), miroir de scène, inversion verticale scène/public (vue danseur), inversion horizontale et verticale de la formation choisie, et annulation des 50 dernières modifications de scène.
 - Jusqu’à 60 tableaux enregistrés, rechargeables comme base d’un nouveau tableau.
 - Export PNG de la scène, sauvegarde et import du projet complet en JSON.
 - Enregistrement automatique dans le navigateur de l’appareil.
@@ -44,7 +44,7 @@ Aucune variable d’environnement, clé API ou base de données n’est nécessa
 1. Renseignez l’effectif. Un changement d’effectif redistribue les groupes et les positions, tout en conservant les prénoms des danseurs restants.
 2. Choisissez les groupes et éventuellement les sous-groupes. Les effectifs sont équilibrés automatiquement.
 3. Choisissez une formation : elle s’applique dans chaque groupe ou sous-groupe actif.
-4. Déplacez les pastilles. Par défaut, le public est en bas et le fond de scène en haut. Le bouton ⇅ inverse verticalement la scène pour voir le placement dans le sens du danseur (public en haut). G/D correspondent aux côtés de l’image, pas aux côtés du danseur.
+4. Déplacez les pastilles. Par défaut, le public est en bas et le fond de scène en haut. Le bouton ⇅ de la scène inverse verticalement la vue (vue danseur, public en haut). G/D correspondent aux côtés de l’image, pas aux côtés du danseur. Les boutons ⇄ et ⇅ du panneau Disposition inversent la formation elle-même, horizontalement ou verticalement, et s’appliquent aussi aux aperçus.
 5. Cliquez sur un danseur pour changer son prénom ou son groupe. Une affectation individuelle conserve sa position ; le bouton ↻ replace ensuite tous les groupes si nécessaire.
 6. Donnez un nom à la scène et enregistrez le tableau. L’enregistrement ajoute un nouveau tableau ; il ne remplace pas le précédent.
 7. Exportez votre projet JSON pour le transférer vers un autre appareil ou conserver une copie indépendante.
