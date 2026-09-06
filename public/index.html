@@ -5,7 +5,7 @@
   <meta name="theme-color" content="#f5f3ed">
   <meta name="description" content="Votre studio de placement chorégraphique : créez vos formations, organisez vos groupes et préparez vos cours de danse.">
   <title>PRAFUL DANCE APP — Votre studio de chorégraphie</title>
-  <link rel="icon" href="logo.webp"><link rel="stylesheet" href="style.css">
+  <link rel="icon" href="logo.webp"><link rel="stylesheet" href="style.css"><link rel="stylesheet" href="flip.css">
 </head>
 <body>
   <header class="app-header"><a class="brand" href="./"><span class="brand-symbol">P<span>✳</span></span><span>PRAFUL <b>DANCE APP</b><small>LE STUDIO DES CHORÉGRAPHES</small></span></a><div class="header-right"><span class="local-label"><i></i> Votre espace de création</span><img src="logo.webp" alt="Parvati India" width="145" height="40"></div></header>
@@ -16,8 +16,8 @@
         <div class="divider"></div><label for="groups">Répartition en groupes</label><select id="groups"><option value="1">Toute la troupe ensemble</option><option value="2">2 groupes</option><option value="3">3 groupes</option><option value="4">4 groupes</option><option value="5">5 groupes</option><option value="6">6 groupes</option></select><label class="check"><input type="checkbox" id="split"> Diviser en 2 sous-groupes</label><p class="hint">Groupes équilibrés automatiquement, puis modifiables par danseur.</p><div id="legend" class="legend"></div>
       </aside>
       <section class="panel formations-panel" id="formations-panel"><div class="panel-title formations-head"><span class="step">02</span><h2>La disposition</h2></div><div id="layouts" class="layouts"></div></section>
-      <section class="center"><div class="stage-card"><div class="stage-toolbar"><div><span class="live-dot"></span><input id="title" aria-label="Nom du tableau" maxlength="100" value="Mon premier tableau"></div><div class="toolbar-actions"><button id="undo" title="Annuler la dernière modification" aria-label="Annuler">↶</button><button id="mirror" title="Inverser gauche et droite" aria-label="Miroir horizontal">⇄</button><button id="reset" title="Réappliquer la disposition" aria-label="Réappliquer la disposition">⟳</button><button id="fullscreen" title="Afficher en plein écran" aria-label="Plein écran">⛶</button></div></div>
-        <div class="stage-surround"><div class="stage-label">FOND DE SCÈNE</div><div id="stage" class="stage" role="group" aria-label="Scène vue du dessus, public en bas"><div class="axis"></div><div class="stage-center"></div><span class="wing left">G</span><span class="wing right">D</span><div id="dancers"></div></div><div class="audience"><span></span> PUBLIC <span></span></div></div>
+      <section class="center"><div class="stage-card"><div class="stage-toolbar"><div><span class="live-dot"></span><input id="title" aria-label="Nom du tableau" maxlength="100" value="Mon premier tableau"></div><div class="toolbar-actions"><button id="undo" title="Annuler la dernière modification" aria-label="Annuler">↶</button><button id="flip" title="Inverser scène et public (vue danseur)" aria-label="Inverser verticalement scène et public" aria-pressed="false">⇅</button><button id="mirror" title="Inverser gauche et droite" aria-label="Miroir horizontal">⇄</button><button id="reset" title="Réappliquer la disposition" aria-label="Réappliquer la disposition">⟳</button><button id="fullscreen" title="Afficher en plein écran" aria-label="Plein écran">⛶</button></div></div>
+        <div class="stage-surround" id="stage-surround"><div class="stage-label" id="backstage-label">FOND DE SCÈNE</div><div id="stage" class="stage" role="group" aria-label="Scène vue du dessus, public en bas"><div class="axis"></div><div class="stage-center"></div><span class="wing left">G</span><span class="wing right">D</span><div id="dancers"></div></div><div class="audience"><span></span> PUBLIC <span></span></div></div>
         <div class="stage-footer"><span>✥ <span>Glissez les danseurs pour ajuster</span></span><span id="stage-meta">9 danseurs · Vue du dessus</span></div></div>
         <div class="below-stage"><div class="tip"><span>✦</span><div><strong id="tip-title">L’équilibre, même à 9.</strong><p id="tip-text">Deux lignes centrées pour donner sa place à chacun.</p></div></div><button class="button dark" id="save">+ Enregistrer ce tableau</button></div>
         <section class="saved-section"><div class="section-heading"><div><p class="eyebrow">VOTRE CHORÉGRAPHIE</p><h2>Mes tableaux <span id="saved-count">0</span></h2></div><div class="file-actions"><button id="download">Sauvegarder le projet</button><button id="import">Importer</button><input id="file" type="file" accept="application/json,.json" hidden></div></div><div id="saved" class="saved-list"></div><p class="storage-note" id="storage-note">Sauvegarde automatique sur cet appareil. Exportez le projet pour le retrouver ailleurs.</p></section>
@@ -26,4 +26,5 @@
     </div>
     <footer class="page-footer"><span>PRAFUL DANCE APP</span><span>Créé pour imaginer. Pensé pour danser.</span><span>PARVATI INDIA</span></footer>
   </main><div id="toast" role="status" aria-live="polite"></div><script type="module" src="app.js"></script>
-</body></html>
+</body>
+</html>

@@ -1,0 +1,10 @@
+/* Vue danseur : inversion verticale scène / public */
+.toolbar-actions button[aria-pressed=true]{background:var(--soft);border-color:#e2b599;color:var(--accent)}
+.stage-surround{display:flex;flex-direction:column}
+.stage-surround.from-dancer{flex-direction:column-reverse}
+.stage-surround.from-dancer .stage-label{margin-bottom:0;margin-top:16px}
+.stage-surround.from-dancer .audience{margin-top:0;margin-bottom:18px}
+.stage-surround.from-dancer .dancer::before{bottom:auto;top:-5px}
+.stage-surround.from-dancer .dancer small{top:auto;bottom:39px}
+@media(min-width:1500px){.stage-surround.from-dancer .dancer small{bottom:46px}}
+@media(max-width:740px){.stage-surround.from-dancer .dancer small{bottom:33px}}
