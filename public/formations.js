@@ -28,12 +28,14 @@ export const layouts = [
 export const colors = ['#d86638', '#56816a', '#6d69b3', '#ba5577', '#327eaa', '#b68a20'];
 export const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
 
-export function positions(n, layout) {
+export function positions(n, layout, flipH = false, flipV = false) {
   if (!Number.isInteger(n) || n < 1 || n > 40) throw new Error('Effectif invalide');
   if (!layouts.some(([id]) => id === layout)) throw new Error('Disposition invalide');
-  if (n === 1) return [{ x: 50, y: 52 }];
+  if (n === 1) {
+    const single = { x: 50, y: 52 };
+    return [{ x: flipH ? 100 - single.x : single.x, y: flipV ? 100 - single.y : single.y }];
+  }
 
-  // Répartit une série sur une largeur donnée, en pourcentage de scène.
   const spread = (i, total, min = 12, max = 88) => total === 1 ? (min + max) / 2 : min + i * (max - min) / (total - 1);
   const finish = points => points.map(({ x, y }) => ({ x: clamp(x, 9, 91), y: clamp(y, 16, 84) }));
   const rowCounts = count => {
@@ -75,7 +77,6 @@ export function positions(n, layout) {
     points = Array.from({ length: n }, (_, i) => {
       const rear = i < back, j = rear ? i : i - back, count = rear ? back : front;
       let x = spread(j, count, count === 1 ? 50 : 14, count === 1 ? 50 : 86);
-      // Le fond se place dans les fenêtres du premier rang.
       if (rear && count > 1) {
         const scale = layout === 'stagger' ? .84 : .92;
         x = 50 + (x - 50) * scale;
@@ -249,10 +250,13 @@ export function positions(n, layout) {
 
   if (['pyramid', 'three_rows', 'windows', 'block'].includes(layout)) points = symmetrizeRows(points);
 
+  if (flipH) points = points.map(p => ({ x: 100 - p.x, y: p.y }));
+  if (flipV) points = points.map(p => ({ x: p.x, y: 100 - p.y }));
+
   return finish(points);
 }
 
-export function arrange(dancers, layout, groupCount = 1, split = false) {
+export function arrange(dancers, layout, groupCount = 1, split = false, flipH = false, flipV = false) {
   const result = dancers.map(d => ({ ...d }));
   const buckets = new Map();
   result.forEach(d => {
@@ -266,7 +270,7 @@ export function arrange(dancers, layout, groupCount = 1, split = false) {
     const row = Math.floor(index / columns), inRow = Math.min(columns, groups.length - row * columns);
     const width = 100 / columns, height = 100 / rows;
     const offset = (100 - inRow * width) / 2;
-    positions(members.length, layout).forEach((p, i) => {
+    positions(members.length, layout, flipH, flipV).forEach((p, i) => {
       members[i].x = offset + (index % columns) * width + p.x * width / 100;
       members[i].y = row * height + p.y * height / 100;
     });
@@ -277,6 +281,8 @@ export function arrange(dancers, layout, groupCount = 1, split = false) {
 export function validScene(s) {
   return !!s && typeof s.title === 'string' && s.title.length <= 100 && layouts.some(([id]) => id === s.layout)
     && Number.isInteger(s.groups) && s.groups >= 1 && s.groups <= 6 && typeof s.split === 'boolean'
+    && (s.flipH === undefined || typeof s.flipH === 'boolean')
+    && (s.flipV === undefined || typeof s.flipV === 'boolean')
     && Array.isArray(s.dancers) && s.dancers.length >= 1 && s.dancers.length <= 40
     && new Set(s.dancers.map(d => d.id)).size === s.dancers.length
     && s.dancers.every(d => Number.isInteger(d.id) && d.id > 0 && d.id <= 40 && typeof d.name === 'string' && d.name.length <= 40
